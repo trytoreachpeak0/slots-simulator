@@ -1,5 +1,7 @@
 # 8005 AGV 仓位 IO 仿真器
 
+> 下一阶段开发任务见 [`docs/EXTERNAL_AUTOMATION_CONTROL_API.md`](docs/EXTERNAL_AUTOMATION_CONTROL_API.md)：为 HMI 无人值守联调增加 loopback HTTP 环境/故障控制面，同时保持 HMI 只通过 Modbus 操作 IO。
+
 本仓库是8005 AGV仓位模拟器的正式开发仓库。当前提交由原型目录`SQCD_8005AGV_Simulator`迁移而来，作为双方开始协议对接前的模拟器初始代码基线。
 
 当前版本用于在没有真实康耐德 `C2000-A2-KDDA0A0-AD6` IO模块时，模拟8仓位AGV的继电器DO、锁反馈DI、光幕DI、仓门和货物状态。
