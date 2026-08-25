@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0",
+  "instanceId": "agv-slot-simulator-01",
+  "agvId": "AGV-01",
+  "modbus": {
+    "listenAddress": "127.0.0.1",
+    "port": 1502,
+    "unitId": 255,
+    "strictUnitId": true,
+    "doPduBaseAddress": 100,
+    "diPduBaseAddress": 200,
+    "doChannelCount": 16,
+    "diChannelCount": 16
+  },
+  "defaults": {
+    "outputMode": "Pulse",
+    "pulseWidthMs": 500,
+    "unlockFeedbackDelayMs": 100,
+    "lockFeedbackDelayMs": 100,
+    "lightCurtainFeedbackDelayMs": 50,
+    "lockFeedbackModel": "DoorLatch",
+    "autoPopDoorOnUnlock": true,
+    "maxOpenDoors": 1
+  },
+  "powerOnDoStates": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "slots": [
+    { "slotIndex": 0, "displayNumber": 1, "unlockDoChannel": 0, "lockFeedbackDiChannel": 0, "lightCurtainDiChannel": 8, "unlockActiveLevel": 1, "lockedActiveLevel": 1, "obstructedActiveLevel": 0 },
+    { "slotIndex": 1, "displayNumber": 2, "unlockDoChannel": 1, "lockFeedbackDiChannel": 1, "lightCurtainDiChannel": 9, "unlockActiveLevel": 1, "lockedActiveLevel": 1, "obstructedActiveLevel": 0 },
+    { "slotIndex": 2, "displayNumber": 3, "unlockDoChannel": 2, "lockFeedbackDiChannel": 2, "lightCurtainDiChannel": 10, "unlockActiveLevel": 1, "lockedActiveLevel": 1, "obstructedActiveLevel": 0 },
+    { "slotIndex": 3, "displayNumber": 4, "unlockDoChannel": 3, "lockFeedbackDiChannel": 3, "lightCurtainDiChannel": 11, "unlockActiveLevel": 1, "lockedActiveLevel": 1, "obstructedActiveLevel": 0 },
+    { "slotIndex": 4, "displayNumber": 5, "unlockDoChannel": 4, "lockFeedbackDiChannel": 4, "lightCurtainDiChannel": 12, "unlockActiveLevel": 1, "lockedActiveLevel": 1, "obstructedActiveLevel": 0 },
+    { "slotIndex": 5, "displayNumber": 6, "unlockDoChannel": 5, "lockFeedbackDiChannel": 5, "lightCurtainDiChannel": 13, "unlockActiveLevel": 1, "lockedActiveLevel": 1, "obstructedActiveLevel": 0 },
+    { "slotIndex": 6, "displayNumber": 7, "unlockDoChannel": 6, "lockFeedbackDiChannel": 6, "lightCurtainDiChannel": 14, "unlockActiveLevel": 1, "lockedActiveLevel": 1, "obstructedActiveLevel": 0 },
+    { "slotIndex": 7, "displayNumber": 8, "unlockDoChannel": 7, "lockFeedbackDiChannel": 7, "lightCurtainDiChannel": 15, "unlockActiveLevel": 1, "lockedActiveLevel": 1, "obstructedActiveLevel": 0 }
+  ]
+}

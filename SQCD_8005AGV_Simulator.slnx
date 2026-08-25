@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/SQCD_8005AGV_Simulator.Core/SQCD_8005AGV_Simulator.Core.csproj" />
+  <Project Path="src/SQCD_8005AGV_Simulator/SQCD_8005AGV_Simulator.csproj" />
+  <Project Path="tests/SQCD_8005AGV_Simulator.Tests/SQCD_8005AGV_Simulator.Tests.csproj" />
+</Solution>
