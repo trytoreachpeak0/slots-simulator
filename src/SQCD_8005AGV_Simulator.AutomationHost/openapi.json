@@ -1,0 +1,152 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "8005 AGV Slot Simulator Automation API",
+    "version": "1.0.0",
+    "description": "Loopback-only test environment control plane. Unlocking is intentionally not exposed over HTTP."
+  },
+  "servers": [
+    { "url": "http://127.0.0.1:58006/api/v1" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "responses": { "200": { "description": "Host and Modbus health", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HealthResponse" } } } } }
+      }
+    },
+    "/snapshot": {
+      "get": {
+        "operationId": "getSnapshot",
+        "responses": { "200": { "description": "Complete simulator snapshot", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SnapshotResponse" } } } } }
+      }
+    },
+    "/reset": {
+      "post": {
+        "operationId": "resetSimulator",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CommandRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/WriteOk" }, "400": { "$ref": "#/components/responses/BadRequest" }, "409": { "$ref": "#/components/responses/Conflict" } }
+      }
+    },
+    "/slots/{slotNo}/cargo": {
+      "put": {
+        "operationId": "setCargo",
+        "parameters": [ { "$ref": "#/components/parameters/SlotNo" } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CargoRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/WriteOk" }, "400": { "$ref": "#/components/responses/BadRequest" }, "404": { "$ref": "#/components/responses/NotFound" }, "409": { "$ref": "#/components/responses/Conflict" } }
+      }
+    },
+    "/slots/{slotNo}/close-door": {
+      "post": {
+        "operationId": "closeDoor",
+        "parameters": [ { "$ref": "#/components/parameters/SlotNo" } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CommandRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/WriteOk" }, "400": { "$ref": "#/components/responses/BadRequest" }, "404": { "$ref": "#/components/responses/NotFound" }, "409": { "$ref": "#/components/responses/Conflict" } }
+      }
+    },
+    "/slots/{slotNo}/lock-feedback-override": {
+      "put": {
+        "operationId": "setLockFeedbackOverride",
+        "parameters": [ { "$ref": "#/components/parameters/SlotNo" } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OverrideRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/WriteOk" }, "400": { "$ref": "#/components/responses/BadRequest" }, "404": { "$ref": "#/components/responses/NotFound" }, "409": { "$ref": "#/components/responses/Conflict" } }
+      }
+    },
+    "/slots/{slotNo}/light-curtain-override": {
+      "put": {
+        "operationId": "setLightCurtainOverride",
+        "parameters": [ { "$ref": "#/components/parameters/SlotNo" } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OverrideRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/WriteOk" }, "400": { "$ref": "#/components/responses/BadRequest" }, "404": { "$ref": "#/components/responses/NotFound" }, "409": { "$ref": "#/components/responses/Conflict" } }
+      }
+    },
+    "/faults/modbus": {
+      "put": {
+        "operationId": "setModbusFault",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ModbusFaultRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/WriteOk" }, "400": { "$ref": "#/components/responses/BadRequest" }, "409": { "$ref": "#/components/responses/Conflict" } }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "SlotNo": { "name": "slotNo", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1, "maximum": 8 } }
+    },
+    "responses": {
+      "WriteOk": { "description": "Command accepted or idempotently replayed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WriteResponse" } } } },
+      "BadRequest": { "description": "Invalid request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+      "NotFound": { "description": "Unknown slot", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+      "Conflict": { "description": "Run, revision, command identity or physical-state conflict", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+    },
+    "schemas": {
+      "CommandRequest": {
+        "type": "object",
+        "required": ["runId", "commandId", "expectedRevision"],
+        "properties": {
+          "runId": { "type": "string", "minLength": 1 },
+          "commandId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "expectedRevision": { "type": "integer", "format": "int64", "minimum": 1 }
+        }
+      },
+      "CargoRequest": {
+        "allOf": [
+          { "$ref": "#/components/schemas/CommandRequest" },
+          { "type": "object", "required": ["state"], "properties": { "state": { "type": "string", "enum": ["EMPTY", "OCCUPIED"] } } }
+        ]
+      },
+      "OverrideRequest": {
+        "allOf": [
+          { "$ref": "#/components/schemas/CommandRequest" },
+          { "type": "object", "required": ["mode"], "properties": { "mode": { "type": "string", "enum": ["AUTO", "FIXED_0", "FIXED_1"] } } }
+        ]
+      },
+      "ModbusFaultRequest": {
+        "allOf": [
+          { "$ref": "#/components/schemas/CommandRequest" },
+          { "type": "object", "required": ["mode"], "properties": { "mode": { "type": "string", "enum": ["NORMAL", "NO_RESPONSE", "DISCONNECT", "DELAY"] }, "delayMs": { "type": "integer", "minimum": 1, "maximum": 60000 } } }
+        ]
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": ["schemaVersion", "instanceId", "runId", "revision", "observedAt", "status", "modbus"],
+        "properties": {
+          "schemaVersion": { "type": "string" }, "instanceId": { "type": "string" }, "runId": { "type": "string" }, "revision": { "type": "integer", "format": "int64" }, "observedAt": { "type": "string", "format": "date-time" }, "status": { "type": "string", "enum": ["READY", "DEGRADED"] }, "modbus": { "$ref": "#/components/schemas/ModbusState" }
+        }
+      },
+      "SnapshotResponse": {
+        "type": "object",
+        "required": ["schemaVersion", "instanceId", "runId", "revision", "observedAt", "modbus", "doStates", "diStates", "slots", "openDoorCount", "maxOpenDoors", "faults"],
+        "properties": {
+          "schemaVersion": { "type": "string" }, "instanceId": { "type": "string" }, "runId": { "type": "string" }, "revision": { "type": "integer", "format": "int64" }, "observedAt": { "type": "string", "format": "date-time" }, "modbus": { "$ref": "#/components/schemas/ModbusState" }, "doStates": { "type": "array", "items": { "type": "integer", "enum": [0, 1] } }, "diStates": { "type": "array", "items": { "type": "integer", "enum": [0, 1] } }, "slots": { "type": "array", "minItems": 8, "maxItems": 8, "items": { "$ref": "#/components/schemas/SlotSnapshot" } }, "openDoorCount": { "type": "integer" }, "maxOpenDoors": { "type": "integer" }, "faults": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "WriteResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SnapshotIdentity" },
+          { "type": "object", "required": ["commandId", "changed", "replayed", "appliedRevision", "snapshot"], "properties": { "commandId": { "type": "string" }, "changed": { "type": "boolean" }, "replayed": { "type": "boolean" }, "appliedRevision": { "type": "integer", "format": "int64" }, "snapshot": { "$ref": "#/components/schemas/SnapshotResponse" } } }
+        ]
+      },
+      "ErrorResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SnapshotIdentity" },
+          { "type": "object", "required": ["reasonCode", "message"], "properties": { "commandId": { "type": "string", "nullable": true }, "reasonCode": { "type": "string" }, "message": { "type": "string" } } }
+        ]
+      },
+      "SnapshotIdentity": {
+        "type": "object",
+        "required": ["schemaVersion", "instanceId", "runId", "revision", "observedAt"],
+        "properties": { "schemaVersion": { "type": "string" }, "instanceId": { "type": "string" }, "runId": { "type": "string" }, "revision": { "type": "integer", "format": "int64" }, "observedAt": { "type": "string", "format": "date-time" } }
+      },
+      "ModbusState": {
+        "type": "object",
+        "required": ["listenAddress", "port", "unitId", "isRunning", "clientCount", "faultMode", "delayMs"],
+        "properties": { "listenAddress": { "type": "string" }, "port": { "type": "integer" }, "unitId": { "type": "integer" }, "isRunning": { "type": "boolean" }, "clientCount": { "type": "integer" }, "faultMode": { "type": "string", "enum": ["NORMAL", "NO_RESPONSE", "DISCONNECT", "DELAY"] }, "delayMs": { "type": "integer" } }
+      },
+      "SlotSnapshot": {
+        "type": "object",
+        "required": ["slotNo", "doorState", "cargoState", "unlockOutputRaw", "lockFeedbackRaw", "lightCurtainRaw", "lockFeedbackPending", "lightCurtainFeedbackPending", "faults"],
+        "properties": { "slotNo": { "type": "integer", "minimum": 1, "maximum": 8 }, "doorState": { "type": "string", "enum": ["OPEN", "CLOSED"] }, "cargoState": { "type": "string", "enum": ["EMPTY", "OCCUPIED"] }, "unlockOutputRaw": { "type": "integer", "enum": [0, 1] }, "lockFeedbackRaw": { "type": "integer", "enum": [0, 1] }, "lightCurtainRaw": { "type": "integer", "enum": [0, 1] }, "lockFeedbackPending": { "type": "boolean" }, "lightCurtainFeedbackPending": { "type": "boolean" }, "faults": { "type": "array", "items": { "type": "string" } } }
+      }
+    }
+  }
+}

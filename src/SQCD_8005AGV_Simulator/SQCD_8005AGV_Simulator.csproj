@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\SQCD_8005AGV_Simulator.Core\SQCD_8005AGV_Simulator.Core.csproj" />
+    <ProjectReference Include="..\SQCD_8005AGV_Simulator.AutomationHost\SQCD_8005AGV_Simulator.AutomationHost.csproj" />
     <None Include="simulator.settings.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

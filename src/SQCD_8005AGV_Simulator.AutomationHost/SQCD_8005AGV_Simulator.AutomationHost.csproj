@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>SQCD_8005AGV_Simulator.AutomationHost</AssemblyName>
+    <RootNamespace>SQCD_8005AGV_Simulator.AutomationHost</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SQCD_8005AGV_Simulator.Core\SQCD_8005AGV_Simulator.Core.csproj" />
+    <EmbeddedResource Include="openapi.json" />
+  </ItemGroup>
+</Project>

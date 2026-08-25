@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Net;
 
 namespace SQCD_8005AGV_Simulator.Core.Configuration;
 
@@ -9,6 +10,7 @@ public sealed class SimulatorSettings
     public string InstanceId { get; set; } = "agv-slot-simulator-01";
     public string AgvId { get; set; } = "AGV-01";
     public ModbusSettings Modbus { get; set; } = new();
+    public AutomationSettings Automation { get; set; } = new();
     public SimulatorDefaults Defaults { get; set; } = new();
     public List<int> PowerOnDoStates { get; set; } = Enumerable.Repeat(0, 16).ToList();
     public List<SlotSettings> Slots { get; set; } = [];
@@ -26,12 +28,25 @@ public sealed class SimulatorSettings
     {
         var errors = new List<string>();
 
+        if (string.IsNullOrWhiteSpace(InstanceId))
+            errors.Add("instanceId 不能为空。");
+        if (string.IsNullOrWhiteSpace(AgvId))
+            errors.Add("agvId 不能为空。");
         if (Modbus.Port is < 1 or > 65535)
             errors.Add("modbus.port 必须在 1～65535 之间。");
         if (Modbus.UnitId is < 0 or > 255)
             errors.Add("modbus.unitId 必须在 0～255 之间。");
         if (Modbus.DoChannelCount != 16 || Modbus.DiChannelCount != 16)
             errors.Add("当前型号必须配置为 16 路 DO 和 16 路 DI。");
+        if (Automation.Port is < 1 or > 65535)
+            errors.Add("automation.port 必须在 1～65535 之间。");
+        if (!IPAddress.TryParse(Automation.ListenAddress, out var automationAddress) || !IPAddress.IsLoopback(automationAddress))
+            errors.Add("automation.listenAddress 必须是 loopback IP 地址。");
+        if (string.Equals(Modbus.ListenAddress, Automation.ListenAddress, StringComparison.OrdinalIgnoreCase) &&
+            Modbus.Port == Automation.Port)
+        {
+            errors.Add("automation 与 modbus 不能监听同一个地址和端口。");
+        }
         if (Defaults.PulseWidthMs is < 50 or > 65535)
             errors.Add("defaults.pulseWidthMs 必须在厂家范围 50～65535ms 内。");
         if (Defaults.MaxOpenDoors is < 1 or > 8)
@@ -111,6 +126,12 @@ public sealed class ModbusSettings
     public int DiPduBaseAddress { get; set; } = 200;
     public int DoChannelCount { get; set; } = 16;
     public int DiChannelCount { get; set; } = 16;
+}
+
+public sealed class AutomationSettings
+{
+    public string ListenAddress { get; set; } = "127.0.0.1";
+    public int Port { get; set; } = 58006;
 }
 
 public sealed class SimulatorDefaults

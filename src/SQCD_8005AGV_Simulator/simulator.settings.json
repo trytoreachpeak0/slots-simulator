@@ -12,6 +12,10 @@
     "doChannelCount": 16,
     "diChannelCount": 16
   },
+  "automation": {
+    "listenAddress": "127.0.0.1",
+    "port": 58006
+  },
   "defaults": {
     "outputMode": "Pulse",
     "pulseWidthMs": 500,

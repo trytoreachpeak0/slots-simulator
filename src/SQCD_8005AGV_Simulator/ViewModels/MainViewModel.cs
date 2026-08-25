@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using SQCD_8005AGV_Simulator.AutomationHost;
 using SQCD_8005AGV_Simulator.Core.Configuration;
 using SQCD_8005AGV_Simulator.Core.Models;
 using SQCD_8005AGV_Simulator.Core.Services;
@@ -11,6 +12,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private readonly SynchronizationContext _uiContext;
     private readonly SimulatorEngine _engine;
     private readonly ModbusTcpServer _server;
+    private readonly AutomationHttpServer _automationServer;
     private string _serverStatus = "未启动";
     private string _rawDo = string.Empty;
     private string _rawDi = string.Empty;
@@ -20,6 +22,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private Visibility _globalFaultVisibility = Visibility.Collapsed;
     private int _openDoorCount;
     private int _maxOpenDoors;
+    private ModbusFaultMode _modbusFaultMode;
+    private int _modbusDelayMs;
 
     public MainViewModel(SimulatorSettings settings)
     {
@@ -27,9 +31,11 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         Settings = settings;
         _engine = new SimulatorEngine(settings);
         _server = new ModbusTcpServer(_engine);
+        _automationServer = new AutomationHttpServer(settings, _engine, _server);
         _engine.StateChanged += OnStateChanged;
         _engine.LogEmitted += OnLog;
         _server.LogEmitted += OnLog;
+        _automationServer.LogEmitted += OnLog;
         _server.ConnectionStateChanged += OnConnectionStateChanged;
 
         var snapshot = _engine.GetSnapshot();
@@ -42,6 +48,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public ObservableCollection<SlotViewModel> Slots { get; } = [];
     public ObservableCollection<string> Logs { get; } = [];
     public string Endpoint => $"{Settings.Modbus.ListenAddress}:{Settings.Modbus.Port}";
+    public string HttpEndpoint => $"http://{Settings.Automation.ListenAddress}:{Settings.Automation.Port}";
     public string UnitIdText => $"0x{Settings.Modbus.UnitId:X2}";
 
     public string ServerStatus
@@ -108,10 +115,13 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         try
         {
             await _server.StartAsync();
+            await _automationServer.StartAsync();
             RefreshServerStatus();
         }
         catch (Exception ex)
         {
+            await _automationServer.StopAsync();
+            await _server.StopAsync();
             ServerStatus = "启动失败";
             AppendLog($"服务启动失败：{ex.Message}");
         }
@@ -119,6 +129,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
 
     public async Task StopAsync()
     {
+        await _automationServer.StopAsync();
         await _server.StopAsync();
         RefreshServerStatus();
     }
@@ -153,14 +164,27 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         RawDi = "DI   " + string.Join("  ", snapshot.DiStates.Select((value, index) => $"{index}:{Convert.ToInt32(value)}"));
         _openDoorCount = snapshot.OpenDoorCount;
         _maxOpenDoors = snapshot.MaxOpenDoors;
+        _modbusFaultMode = snapshot.ModbusFault.Mode;
+        _modbusDelayMs = snapshot.ModbusFault.DelayMs;
+        SetProperty(ref _ignoreRequests, _modbusFaultMode == ModbusFaultMode.NoResponse, nameof(IgnoreRequests));
         UpdateGlobalFaultSummary();
     }
 
     private void UpdateGlobalFaultSummary()
     {
         var messages = new List<string>();
-        if (IgnoreRequests)
-            messages.Add("通信不响应故障已启用：客户端连接会保持，但所有 Modbus 请求都不会收到响应。");
+        switch (_modbusFaultMode)
+        {
+            case ModbusFaultMode.NoResponse:
+                messages.Add("通信不响应故障已启用：客户端连接会保持，但所有 Modbus 请求都不会收到响应。");
+                break;
+            case ModbusFaultMode.Disconnect:
+                messages.Add("通信断开故障已启用：现有和新建 Modbus 连接都会被断开。");
+                break;
+            case ModbusFaultMode.Delay:
+                messages.Add($"通信延迟故障已启用：每个 Modbus 请求延迟 {_modbusDelayMs}ms 后处理。");
+                break;
+        }
 
         var abnormalSlots = Slots.Where(slot => slot.HasFault).Select(slot => slot.DisplayNumber).ToArray();
         if (abnormalSlots.Length > 0)
@@ -175,7 +199,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
 
     private void RefreshServerStatus()
     {
-        ServerStatus = _server.IsRunning ? $"运行中 · {_server.ClientCount} 个客户端" : "已停止";
+        ServerStatus = _server.IsRunning && _automationServer.IsRunning
+            ? $"运行中 · Modbus {_server.ClientCount} 个客户端 · HTTP 已就绪"
+            : "已停止";
     }
 
     private void AppendLog(string message)
@@ -190,7 +216,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         _engine.StateChanged -= OnStateChanged;
         _engine.LogEmitted -= OnLog;
         _server.LogEmitted -= OnLog;
+        _automationServer.LogEmitted -= OnLog;
         _server.ConnectionStateChanged -= OnConnectionStateChanged;
+        await _automationServer.DisposeAsync();
         await _server.DisposeAsync();
         _engine.Dispose();
     }

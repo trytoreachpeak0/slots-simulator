@@ -24,9 +24,14 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel>
                     <TextBlock Text="SQCD 8005 AGV 仓位 IO 仿真器" Foreground="#F7FBFF" FontSize="20" FontWeight="SemiBold" />
-                    <TextBlock Foreground="#D4E3ED" Margin="0,4,0,0" FontSize="12">
-                        <Run Text="Modbus TCP："/><Run Text="{Binding Endpoint, Mode=OneWay}"/><Run Text="  ·  Unit ID："/><Run Text="{Binding UnitIdText, Mode=OneWay}"/>
-                    </TextBlock>
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <TextBlock Foreground="#D4E3ED" FontSize="12">
+                            <Run Text="Modbus TCP："/><Run Text="{Binding Endpoint, Mode=OneWay}"/><Run Text="  ·  Unit ID："/><Run Text="{Binding UnitIdText, Mode=OneWay}"/>
+                        </TextBlock>
+                        <TextBlock Foreground="#D4E3ED" FontSize="12" Margin="14,0,0,0">
+                            <Run Text="HTTP："/><Run Text="{Binding HttpEndpoint, Mode=OneWay}"/>
+                        </TextBlock>
+                    </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Border Background="#DDF5E8" CornerRadius="12" Padding="10,5" Margin="0,0,10,0">

@@ -1,11 +1,16 @@
 namespace SQCD_8005AGV_Simulator.Core.Models;
 
 public sealed record SimulatorSnapshot(
+    string SchemaVersion,
+    string InstanceId,
+    string RunId,
+    long Revision,
     IReadOnlyList<bool> DoStates,
     IReadOnlyList<bool> DiStates,
     IReadOnlyList<SlotSnapshot> Slots,
     int OpenDoorCount,
     int MaxOpenDoors,
+    ModbusFaultSnapshot ModbusFault,
     DateTimeOffset UpdatedAt);
 
 public sealed record SlotSnapshot(
@@ -26,3 +31,13 @@ public sealed record SlotSnapshot(
     bool LightCurtainFeedbackPending,
     bool? LockFeedbackOverride,
     bool? LightCurtainOverride);
+
+public sealed record ModbusFaultSnapshot(ModbusFaultMode Mode, int DelayMs);
+
+public enum ModbusFaultMode
+{
+    Normal,
+    NoResponse,
+    Disconnect,
+    Delay
+}

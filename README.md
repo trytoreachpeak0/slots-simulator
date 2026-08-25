@@ -6,7 +6,9 @@
 
 当前版本用于在没有真实康耐德 `C2000-A2-KDDA0A0-AD6` IO模块时，模拟8仓位AGV的继电器DO、锁反馈DI、光幕DI、仓门和货物状态。
 
-当前实现提供Modbus TCP模拟接口。后续如果[`8005-agv-protocol`](https://github.com/trytoreachpeak0/8005-agv-protocol)确定`HTTP/JSON + ISlotIoProvider`方案，将以协议仓库为唯一依据增量增加适配层；当前接口不应被视为最终共享协议，也不代表真实硬件认证结果。
+当前实现由WPF模拟器一个进程同时提供Modbus TCP IO数据面和仅监听loopback的HTTP测试控制面。界面操作、HMI的Modbus操作和测试程序的HTTP操作复用同一个`SimulatorEngine`，因此三方观察到的是同一份仓位状态。HMI不得调用HTTP接口，HTTP也不提供开锁能力。
+
+HTTP测试控制面属于模拟器本地自动化契约，不是HMI与ControlServer之间的业务协议。正式跨端消息仍统一以[`8005-agv-protocol`](https://github.com/trytoreachpeak0/8005-agv-protocol)为准。本模拟器只证明软件IO闭环，不代表真实硬件认证结果。
 
 ## 运行
 
@@ -16,13 +18,15 @@ dotnet run --project .\src\SQCD_8005AGV_Simulator\SQCD_8005AGV_Simulator.csproj
 
 程序默认自动监听：
 
-- IP：`127.0.0.1`
-- 端口：`1502`
-- Unit ID：`0xFF`
+- Modbus数据面：`127.0.0.1:1502`，Unit ID=`0xFF`
+- HTTP控制面：`http://127.0.0.1:58006/api/v1`
+- OpenAPI：`http://127.0.0.1:58006/openapi/v1.json`
 - DO PDU 地址：`100～115`
 - DI PDU 地址：`200～215`
 
 修改输出目录中的 `simulator.settings.json` 或源项目中的同名文件即可调整点位、极性和脉宽。
+
+`SQCD_8005AGV_Simulator.AutomationHost`现在是由WPF引用的HTTP宿主组件，不再是可单独启动的完整模拟器。Visual Studio中只需将`SQCD_8005AGV_Simulator`设为启动项目；“启动服务/停止服务”会同时控制1502和58006两个监听端口。
 
 ## 已实现 Modbus 功能码
 
@@ -53,9 +57,10 @@ DO 原始值 `1` 表示继电器 COM 与 N.O. 闭合，DI 原始值 `1` 表示�
 
 ```powershell
 dotnet run --project .\tests\SQCD_8005AGV_Simulator.Tests\SQCD_8005AGV_Simulator.Tests.csproj
+dotnet run --project .\tests\SQCD_8005AGV_Simulator.AutomationTests\SQCD_8005AGV_Simulator.AutomationTests.csproj
 ```
 
-测试覆盖安全初始态、Pulse 自动断开、装料关门闭环、单路/批量写、DI 位序和异常响应。
+原18项测试覆盖安全初始态、Pulse自动断开、装料关门闭环、单路/批量写、DI位序和异常响应。新增14项自动化测试覆盖HTTP Reset、快照、Modbus/HTTP真实端口闭环、runId/revision、命令幂等、并发冲突、三种通信故障、HTTP无开锁入口及非loopback配置拒绝。
 
 ## 故障状态说明
 

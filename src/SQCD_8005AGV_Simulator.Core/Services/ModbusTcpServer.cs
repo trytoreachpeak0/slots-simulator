@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using SQCD_8005AGV_Simulator.Core.Configuration;
+using SQCD_8005AGV_Simulator.Core.Models;
 
 namespace SQCD_8005AGV_Simulator.Core.Services;
 
@@ -11,6 +12,8 @@ public sealed class ModbusTcpServer : IAsyncDisposable
     private readonly SimulatorEngine _engine;
     private readonly ModbusSettings _settings;
     private readonly ConcurrentDictionary<int, TcpClient> _clients = new();
+    private readonly object _faultSync = new();
+    private CancellationTokenSource _faultChanged = new();
     private TcpListener? _listener;
     private CancellationTokenSource? _lifetime;
     private Task? _acceptTask;
@@ -20,11 +23,19 @@ public sealed class ModbusTcpServer : IAsyncDisposable
     {
         _engine = engine;
         _settings = engine.Settings.Modbus;
+        _engine.ModbusFaultChanged += OnModbusFaultChanged;
     }
 
     public bool IsRunning => _listener is not null;
     public int ClientCount => _clients.Count;
-    public bool IgnoreRequests { get; set; }
+    public string ListenAddress => _settings.ListenAddress;
+    public int Port => _settings.Port;
+    public int UnitId => _settings.UnitId;
+    public bool IgnoreRequests
+    {
+        get => _engine.GetModbusFault().Mode == ModbusFaultMode.NoResponse;
+        set => _engine.SetModbusFault(value ? ModbusFaultMode.NoResponse : ModbusFaultMode.Normal);
+    }
     public bool LogReadRequests { get; set; }
 
     public event EventHandler<string>? LogEmitted;
@@ -107,6 +118,12 @@ public sealed class ModbusTcpServer : IAsyncDisposable
                 var client = await _listener.AcceptTcpClientAsync(token);
                 client.NoDelay = true;
                 var clientId = Interlocked.Increment(ref _nextClientId);
+                if (_engine.GetModbusFault().Mode == ModbusFaultMode.Disconnect)
+                {
+                    EmitLog($"客户端 #{clientId} 在 DISCONNECT 故障期间尝试连接，已立即关闭。");
+                    client.Dispose();
+                    continue;
+                }
                 _clients[clientId] = client;
                 EmitLog($"客户端 #{clientId} 已连接：{client.Client.RemoteEndPoint}");
                 ConnectionStateChanged?.Invoke(this, EventArgs.Empty);
@@ -159,9 +176,11 @@ public sealed class ModbusTcpServer : IAsyncDisposable
                     continue;
                 }
 
-                if (IgnoreRequests)
+                var faultAction = await ApplyFaultBehaviorAsync(clientId, serverToken);
+                if (faultAction == FaultRequestAction.Disconnect)
+                    break;
+                if (faultAction == FaultRequestAction.DropResponse)
                 {
-                    EmitLog($"客户端 #{clientId}：已接收 FC=0x{pdu[0]:X2}，故障模式下不响应。");
                     continue;
                 }
 
@@ -192,6 +211,66 @@ public sealed class ModbusTcpServer : IAsyncDisposable
             ConnectionStateChanged?.Invoke(this, EventArgs.Empty);
             EmitLog($"客户端 #{clientId} 已断开。");
         }
+    }
+
+    private async Task<FaultRequestAction> ApplyFaultBehaviorAsync(int clientId, CancellationToken serverToken)
+    {
+        while (!serverToken.IsCancellationRequested)
+        {
+            var fault = _engine.GetModbusFault();
+            switch (fault.Mode)
+            {
+                case ModbusFaultMode.Normal:
+                    return FaultRequestAction.Process;
+
+                case ModbusFaultMode.NoResponse:
+                    EmitLog($"客户端 #{clientId}：故障模式 NO_RESPONSE，已接收请求但不响应。");
+                    return FaultRequestAction.DropResponse;
+
+                case ModbusFaultMode.Disconnect:
+                    EmitLog($"客户端 #{clientId}：故障模式 DISCONNECT，连接即将关闭。");
+                    return FaultRequestAction.Disconnect;
+
+                case ModbusFaultMode.Delay:
+                    using (var linked = CancellationTokenSource.CreateLinkedTokenSource(serverToken, GetFaultChangeToken()))
+                    {
+                        try
+                        {
+                            await Task.Delay(fault.DelayMs, linked.Token);
+                            return FaultRequestAction.Process;
+                        }
+                        catch (OperationCanceledException) when (!serverToken.IsCancellationRequested)
+                        {
+                            // 故障模式变化后重新读取，旧延迟不得继续影响请求。
+                        }
+                    }
+                    break;
+
+                default:
+                    throw new InvalidOperationException($"未知Modbus故障模式：{fault.Mode}");
+            }
+        }
+
+        return FaultRequestAction.Disconnect;
+    }
+
+    private CancellationToken GetFaultChangeToken()
+    {
+        lock (_faultSync)
+            return _faultChanged.Token;
+    }
+
+    private void OnModbusFaultChanged(object? sender, EventArgs e)
+    {
+        lock (_faultSync)
+        {
+            _faultChanged.Cancel();
+            _faultChanged.Dispose();
+            _faultChanged = new CancellationTokenSource();
+        }
+
+        if (_engine.GetModbusFault().Mode == ModbusFaultMode.Disconnect)
+            DisconnectAllClients();
     }
 
     internal byte[] ProcessPdu(ReadOnlySpan<byte> pdu)
@@ -334,7 +413,23 @@ public sealed class ModbusTcpServer : IAsyncDisposable
 
     private void EmitLog(string message) => LogEmitted?.Invoke(this, $"{DateTime.Now:HH:mm:ss.fff}  {message}");
 
-    public async ValueTask DisposeAsync() => await StopAsync();
+    public async ValueTask DisposeAsync()
+    {
+        _engine.ModbusFaultChanged -= OnModbusFaultChanged;
+        await StopAsync();
+        lock (_faultSync)
+        {
+            _faultChanged.Cancel();
+            _faultChanged.Dispose();
+        }
+    }
+
+    private enum FaultRequestAction
+    {
+        Process,
+        DropResponse,
+        Disconnect
+    }
 
     private sealed class ModbusRequestException(byte exceptionCode, string message) : Exception(message)
     {
